@@ -82,7 +82,7 @@ func (s *GameService) MakeMove(gameID, username string, position int) (string, s
 				s.userRepo.Save(u)
 			}
 		}
-	} else if g.IsAIGame && g.CurrentTurn == "AI" {
+	} else if g.IsAIGame {
 		aiMove := ai.AIMove(g, "AI")
 		if aiMove == -1 {
 			log.Printf("MakeMove: AI failed to make a move for gameID=%s", gameID)

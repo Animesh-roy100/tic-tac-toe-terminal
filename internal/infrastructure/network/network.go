@@ -53,6 +53,7 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 
 	// Get username
 	player := handler.NewPlayer(conn)
+	handler.SendMessage(player, "Welcome to Tic Tac Toe!")
 	handler.SendMessage(player, "Enter username: ")
 	username, err := reader.ReadString('\n')
 	if err != nil {
