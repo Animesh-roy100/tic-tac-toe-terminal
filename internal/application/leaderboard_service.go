@@ -2,7 +2,7 @@ package application
 
 import (
 	"fmt"
-	"strings"
+	"sort"
 	"tic-tac-toe/internal/domain/user"
 )
 
@@ -19,10 +19,12 @@ func (s *LeaderboardService) GetLeaderboard() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	var sb strings.Builder
-	sb.WriteString("Leaderboard:\n")
+	sort.Slice(users, func(i, j int) bool {
+		return users[i].Score > users[j].Score
+	})
+	leaderboard := "Leaderboard:\n"
 	for _, u := range users {
-		sb.WriteString(fmt.Sprintf("%s: %d points, %d win streak\n", u.Username, u.Score, u.WinStreak))
+		leaderboard += fmt.Sprintf("%s: %d points, %d win streak\n", u.Username, u.Score, u.WinStreak)
 	}
-	return sb.String(), nil
+	return leaderboard, nil
 }

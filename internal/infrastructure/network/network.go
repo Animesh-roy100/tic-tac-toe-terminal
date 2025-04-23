@@ -9,14 +9,17 @@ import (
 	"tic-tac-toe/internal/domain/game"
 	"tic-tac-toe/internal/domain/user"
 	"tic-tac-toe/internal/handler"
+	"tic-tac-toe/internal/types"
 )
 
 type TCPServer struct {
 	listener    net.Listener
 	userRepo    user.UserRepository
 	gameService *application.GameService
-	leaderboard *application.LeaderboardService
 	matchmaking *application.MatchmakingService
+	leaderboard *application.LeaderboardService
+	players     map[string]*types.Player
+	gamePlayers map[string][]*types.Player
 }
 
 func NewTCPServer(addr string, userRepo user.UserRepository, gameRepo game.GameRepository) *TCPServer {
@@ -33,6 +36,8 @@ func NewTCPServer(addr string, userRepo user.UserRepository, gameRepo game.GameR
 		gameService: gameService,
 		leaderboard: leaderboard,
 		matchmaking: matchmaking,
+		players:     make(map[string]*types.Player),
+		gamePlayers: make(map[string][]*types.Player),
 	}
 }
 
@@ -51,27 +56,36 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 	defer conn.Close()
 	reader := bufio.NewReader(conn)
 
-	// Get username
-	player := handler.NewPlayer(conn)
-	handler.SendMessage(player, "Welcome to Tic Tac Toe!")
-	handler.SendMessage(player, "Enter username: ")
-	username, err := reader.ReadString('\n')
-	if err != nil {
-		log.Printf("Error reading username: %v", err)
-		return
+	// Get Username from User
+	player := types.NewPlayer(conn)
+	types.SendMessage(player, "Welcome to Tic Tac Toe!\nEnter username: ")
+
+	for {
+		username, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading username: %v", err)
+			return
+		}
+		username = strings.TrimSpace(username)
+		if _, err := s.userRepo.FindByUsername(username); err == nil {
+			types.SendMessage(player, "Username already taken. Please choose another one:")
+		} else {
+			player.Username = username
+			u := user.NewUser(username)
+			s.userRepo.Save(u)
+			s.players[username] = player
+			types.SendMessage(player, "Welcome, "+username)
+			types.SendMessage(player, "Commands: join <two-player|ai>, move <1-9>, leaderboard")
+			break
+		}
 	}
-	username = strings.TrimSpace(username)
-	player.Username = username
-	u := user.NewUser(username)
-	s.userRepo.Save(u)
-	handler.SendMessage(player, "Welcome, "+username)
-	handler.SendMessage(player, "Commands: join <two-player|ai>, move <1-9>, leaderboard")
 
 	// Command loop
 	for {
 		message, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Error reading from %s: %v", username, err)
+			log.Printf("Error reading from %s: %v", player.Username, err)
+			delete(s.players, player.Username)
 			return
 		}
 		message = strings.TrimSpace(message)
@@ -81,8 +95,18 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 		}
 		command := parts[0]
 		args := parts[1:]
-		if err := handler.HandleCommand(player, command, args, s.gameService, s.leaderboard, s.matchmaking); err != nil {
-			handler.SendMessage(player, "Error: "+err.Error())
+		if err := handler.HandleCommand(player, command, args, s.gameService, s.leaderboard, s.matchmaking, s); err != nil {
+			types.SendMessage(player, "Error: "+err.Error())
 		}
+	}
+}
+
+func (s *TCPServer) AddPlayerToGame(gameID string, player *types.Player) {
+	s.gamePlayers[gameID] = append(s.gamePlayers[gameID], player)
+}
+
+func (s *TCPServer) BroadcastToGame(gameID string, message string) {
+	for _, player := range s.gamePlayers[gameID] {
+		types.SendMessage(player, message)
 	}
 }

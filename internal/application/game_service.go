@@ -120,3 +120,31 @@ func (s *GameService) MakeMove(gameID, username string, position int) (string, s
 	log.Printf("MakeMove: gameID=%s, result=%s, bonusMsg=%s", gameID, result, bonusMsg)
 	return g.DisplayString(), result, bonusMsg, nil
 }
+
+func (s *GameService) GetBoard(gameID string) string {
+	g, err := s.gameRepo.FindByID(gameID)
+	if err != nil {
+		return "Game not found"
+	}
+	return g.DisplayString()
+}
+
+func (s *GameService) GetCurrentTurn(gameID string) string {
+	g, err := s.gameRepo.FindByID(gameID)
+	if err != nil {
+		return ""
+	}
+	return g.CurrentTurn
+}
+
+func (s *GameService) IsAIGame(gameID string) bool {
+	g, err := s.gameRepo.FindByID(gameID)
+	if err != nil {
+		return false
+	}
+	return g.IsAIGame
+}
+
+func (s *GameService) FindGameByID(gameID string) (*game.Game, error) {
+	return s.gameRepo.FindByID(gameID)
+}

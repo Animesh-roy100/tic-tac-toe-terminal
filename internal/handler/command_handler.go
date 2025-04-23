@@ -4,9 +4,10 @@ import (
 	"errors"
 	"strconv"
 	"tic-tac-toe/internal/application"
+	"tic-tac-toe/internal/types"
 )
 
-type CommandHandler func(player *Player, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService) error
+type CommandHandler func(player *types.Player, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error
 
 var handlers = map[string]CommandHandler{
 	"join":        JoinGameHandler,
@@ -14,15 +15,15 @@ var handlers = map[string]CommandHandler{
 	"leaderboard": LeaderboardHandler,
 }
 
-func HandleCommand(player *Player, command string, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService) error {
+func HandleCommand(player *types.Player, command string, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error {
 	handler, ok := handlers[command]
 	if !ok {
 		return errors.New("unknown command")
 	}
-	return handler(player, args, gameService, leaderboard, matchmaking)
+	return handler(player, args, gameService, leaderboard, matchmaking, server)
 }
 
-func JoinGameHandler(player *Player, args []string, gameService *application.GameService, _ *application.LeaderboardService, matchmaking *application.MatchmakingService) error {
+func JoinGameHandler(player *types.Player, args []string, gameService *application.GameService, _ *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error {
 	if len(args) < 1 {
 		return errors.New("mode required: two-player or ai")
 	}
@@ -35,23 +36,29 @@ func JoinGameHandler(player *Player, args []string, gameService *application.Gam
 			return err
 		}
 		if gameID == "" {
-			SendMessage(player, "Waiting for an opponent...")
+			types.SendMessage(player, "Waiting for an opponent...")
 			return nil
 		}
+		player.GameID = gameID
+		server.AddPlayerToGame(gameID, player)
+		server.BroadcastToGame(gameID, "Game started. "+gameService.GetCurrentTurn(gameID)+"'s turn.")
+		server.BroadcastToGame(gameID, gameService.GetBoard(gameID))
 	} else if mode == "ai" {
 		gameID, err = gameService.StartAIGame(player.Username)
 		if err != nil {
 			return err
 		}
+		player.GameID = gameID
+		server.AddPlayerToGame(gameID, player)
+		types.SendMessage(player, "Game started. Your turn.")
+		types.SendMessage(player, gameService.GetBoard(gameID))
 	} else {
 		return errors.New("invalid mode")
 	}
-	player.GameID = gameID
-	SendMessage(player, "Game started. Your turn.")
 	return nil
 }
 
-func MakeMoveHandler(player *Player, args []string, gameService *application.GameService, _ *application.LeaderboardService, _ *application.MatchmakingService) error {
+func MakeMoveHandler(player *types.Player, args []string, gameService *application.GameService, _ *application.LeaderboardService, _ *application.MatchmakingService, server types.Server) error {
 	if len(args) < 1 {
 		return errors.New("position required")
 	}
@@ -73,19 +80,31 @@ func MakeMoveHandler(player *Player, args []string, gameService *application.Gam
 	if bonusMsg != "" {
 		message += "\n" + bonusMsg
 	}
-	SendMessage(player, message)
+
+	if gameService.IsAIGame(player.GameID) {
+		types.SendMessage(player, message)
+	} else {
+		server.BroadcastToGame(player.GameID, message)
+	}
+
+	// Notify next player if game continues
+	g, err := gameService.FindGameByID(player.GameID)
+	if err == nil && g.Winner == "" && !g.IsDraw {
+		if gameService.IsAIGame(player.GameID) {
+			types.SendMessage(player, "Your turn.")
+		} else {
+			server.BroadcastToGame(player.GameID, g.CurrentTurn+"'s turn.")
+		}
+	}
+
 	return nil
 }
 
-func LeaderboardHandler(player *Player, args []string, _ *application.GameService, leaderboard *application.LeaderboardService, _ *application.MatchmakingService) error {
+func LeaderboardHandler(player *types.Player, args []string, _ *application.GameService, leaderboard *application.LeaderboardService, _ *application.MatchmakingService, server types.Server) error {
 	leaderboardStr, err := leaderboard.GetLeaderboard()
 	if err != nil {
 		return err
 	}
-	SendMessage(player, leaderboardStr)
+	types.SendMessage(player, leaderboardStr)
 	return nil
-}
-
-func SendMessage(p *Player, msg string) {
-	p.Conn.Write([]byte(msg + "\n"))
 }
