@@ -1,19 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"tic-tac-toe/internal/infrastructure/network"
+	"tic-tac-toe/internal/infrastructure/repository"
 )
 
 func main() {
-	fmt.Println("Tic Tac Toe in Terminal")
 
-	// userRepo := repository.NewInMemoryUserRepository()
-	// gameRepo := repository.NewInMemoryGameRepository()
+	userRepo := repository.NewInMemoryUserRepository()
+	gameRepo := repository.NewInMemoryGameRepository()
 
-	// server := network.NewTCPServer(":8080", gameRepo, userRepo)
+	server := network.NewTCPServer(":5000", userRepo, gameRepo)
 
-	// log.Println("Server started on port 8080")
-	// if err := server.Start(); err != nil {
-	// 	log.Fatal("Failed to start server:", err)
-	// }
+	log.Println("Server started on :5000")
+	if err := server.Start(); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
