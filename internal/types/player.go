@@ -15,4 +15,5 @@ func NewPlayer(conn net.Conn) *Player {
 type Server interface {
 	AddPlayerToGame(gameID string, player *Player)
 	BroadcastToGame(gameID string, message string)
+	GetPlayer(username string) *Player
 }

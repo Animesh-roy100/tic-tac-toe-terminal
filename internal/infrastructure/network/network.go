@@ -110,3 +110,7 @@ func (s *TCPServer) BroadcastToGame(gameID string, message string) {
 		types.SendMessage(player, message)
 	}
 }
+
+func (s *TCPServer) GetPlayer(username string) *types.Player {
+	return s.players[username]
+}

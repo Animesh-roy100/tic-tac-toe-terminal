@@ -39,8 +39,21 @@ func JoinGameHandler(player *types.Player, args []string, gameService *applicati
 			types.SendMessage(player, "Waiting for an opponent...")
 			return nil
 		}
-		player.GameID = gameID
-		server.AddPlayerToGame(gameID, player)
+
+		// Game has been created, add both players to the game
+		g, err := gameService.FindGameByID(gameID)
+		if err != nil {
+			return err
+		}
+
+		for _, username := range g.Players {
+			p := server.GetPlayer(username)
+			if p != nil {
+				p.GameID = gameID
+				server.AddPlayerToGame(gameID, p)
+			}
+		}
+
 		server.BroadcastToGame(gameID, "Game started. "+gameService.GetCurrentTurn(gameID)+"'s turn.")
 		server.BroadcastToGame(gameID, gameService.GetBoard(gameID))
 	} else if mode == "ai" {

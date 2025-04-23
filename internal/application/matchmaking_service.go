@@ -23,7 +23,7 @@ func (s *MatchmakingService) JoinTwoPlayerGame(username string) (string, error) 
 	select {
 	case opponent := <-s.waiting:
 		gameID := fmt.Sprintf("game-%d", time.Now().UnixNano())
-		g := game.NewGame(gameID, []string{username, opponent}, false)
+		g := game.NewGame(gameID, []string{opponent, username}, false)
 		if err := s.gameRepo.Save(g); err != nil {
 			return "", err
 		}
