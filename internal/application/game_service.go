@@ -148,3 +148,7 @@ func (s *GameService) IsAIGame(gameID string) bool {
 func (s *GameService) FindGameByID(gameID string) (*game.Game, error) {
 	return s.gameRepo.FindByID(gameID)
 }
+
+func (s *GameService) DeleteGame(gameID string) error {
+	return s.gameRepo.Delete(gameID)
+}

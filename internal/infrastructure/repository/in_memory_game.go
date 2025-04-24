@@ -25,3 +25,8 @@ func (r *InMemoryGameRepository) Save(g *game.Game) error {
 	r.games[g.ID] = g
 	return nil
 }
+
+func (r *InMemoryGameRepository) Delete(id string) error {
+	delete(r.games, id)
+	return nil
+}

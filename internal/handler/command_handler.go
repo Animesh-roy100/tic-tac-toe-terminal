@@ -13,6 +13,7 @@ var handlers = map[string]CommandHandler{
 	"join":        JoinGameHandler,
 	"move":        MakeMoveHandler,
 	"leaderboard": LeaderboardHandler,
+	// "exit":        ExitHandler,
 }
 
 func HandleCommand(player *types.Player, command string, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error {
@@ -106,7 +107,11 @@ func MakeMoveHandler(player *types.Player, args []string, gameService *applicati
 		if gameService.IsAIGame(player.GameID) {
 			types.SendMessage(player, "Your turn.")
 		} else {
-			server.BroadcastToGame(player.GameID, g.CurrentTurn+"'s turn.")
+			currentTurn := g.CurrentTurn
+			if currentTurn == "" {
+				return errors.New("error: current turn not set")
+			}
+			server.BroadcastToGame(player.GameID, currentTurn+"'s turn.")
 		}
 	}
 
@@ -121,3 +126,16 @@ func LeaderboardHandler(player *types.Player, args []string, _ *application.Game
 	types.SendMessage(player, leaderboardStr)
 	return nil
 }
+
+// func ExitHandler(player *types.Player, args []string, _ *application.GameService, _ *application.LeaderboardService, _ *application.MatchmakingService, server types.Server) error {
+// 	server.ExitPlayer(player)
+
+// 	types.SendMessage(player, "Goodbye!")
+
+// // Close the connection
+// if player.Conn != nil {
+// 	player.Conn.Close()
+// }
+
+// 	return io.EOF
+// }

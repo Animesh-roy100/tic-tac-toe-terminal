@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"sync"
 	"tic-tac-toe/internal/application"
 	"tic-tac-toe/internal/domain/game"
 	"tic-tac-toe/internal/domain/user"
@@ -20,6 +21,7 @@ type TCPServer struct {
 	leaderboard *application.LeaderboardService
 	players     map[string]*types.Player
 	gamePlayers map[string][]*types.Player
+	mu          sync.Mutex // for thread safety
 }
 
 func NewTCPServer(addr string, userRepo user.UserRepository, gameRepo game.GameRepository) *TCPServer {
@@ -63,7 +65,10 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 	for {
 		username, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Error reading username: %v", err)
+			log.Printf("Error reading from %s: %v", player.Username, err)
+			s.mu.Lock()
+			delete(s.players, player.Username)
+			s.mu.Unlock()
 			return
 		}
 		username = strings.TrimSpace(username)
@@ -73,7 +78,9 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 			player.Username = username
 			u := user.NewUser(username)
 			s.userRepo.Save(u)
+			s.mu.Lock()
 			s.players[username] = player
+			s.mu.Unlock()
 			types.SendMessage(player, "Welcome, "+username)
 			types.SendMessage(player, "Commands: join <two-player|ai>, move <1-9>, leaderboard")
 			break
@@ -85,7 +92,9 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 		message, err := reader.ReadString('\n')
 		if err != nil {
 			log.Printf("Error reading from %s: %v", player.Username, err)
+			s.mu.Lock()
 			delete(s.players, player.Username)
+			s.mu.Unlock()
 			return
 		}
 		message = strings.TrimSpace(message)
@@ -102,15 +111,67 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 }
 
 func (s *TCPServer) AddPlayerToGame(gameID string, player *types.Player) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.gamePlayers[gameID] = append(s.gamePlayers[gameID], player)
 }
 
 func (s *TCPServer) BroadcastToGame(gameID string, message string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	for _, player := range s.gamePlayers[gameID] {
 		types.SendMessage(player, message)
 	}
 }
 
 func (s *TCPServer) GetPlayer(username string) *types.Player {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	return s.players[username]
 }
+
+func (s *TCPServer) GetPlayers() map[string]*types.Player {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.players
+}
+
+// func (s *TCPServer) ExitPlayer(player *types.Player) {
+// 	s.mu.Lock()
+// 	log.Printf("Exiting player: %s", player.Username)
+// 	delete(s.players, player.Username)
+
+// 	if player.GameID == "" {
+// 		// Player was waiting, remove from waiting queue
+// 		log.Printf("%s was waiting, removing from queue", player.Username)
+// 		s.matchmaking.RemoveFromWaiting(player.Username)
+// 	} else {
+// 		// Player was in a game
+// 		gameID := player.GameID
+// 		log.Printf("%s was in game %s", player.Username, gameID)
+// 		gamePlayers := s.gamePlayers[gameID]
+// 		for i, p := range gamePlayers {
+// 			if p.Username == player.Username {
+// 				s.gamePlayers[gameID] = append(gamePlayers[:i], gamePlayers[i+1:]...)
+// 				break
+// 			}
+// 		}
+// 		remainingPlayers := s.gamePlayers[gameID]
+// 		if len(remainingPlayers) > 0 {
+// 			log.Printf("Broadcasting to game %s: %s has left", gameID, player.Username)
+// 			s.BroadcastToGame(gameID, player.Username+" has left the game.")
+// 		}
+
+// 		if len(remainingPlayers) == 1 {
+// 			remainingPlayer := remainingPlayers[0]
+// 			log.Printf("Notifying %s and moving to waiting queue", remainingPlayer.Username)
+// 			types.SendMessage(remainingPlayer, "Your opponent has left. Waiting for a new opponent...")
+// 			s.matchmaking.AddToWaiting(remainingPlayer.Username)
+// 			remainingPlayer.GameID = ""
+// 			s.gameService.DeleteGame(gameID)
+// 		}
+// 		log.Printf("Deleting game %s from gamePlayers", gameID)
+// 		delete(s.gamePlayers, gameID)
+// 	}
+// 	s.mu.Unlock()
+// }

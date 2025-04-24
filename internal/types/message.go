@@ -1,5 +1,7 @@
 package types
 
-func SendMessage(p *Player, msg string) {
-	p.Conn.Write([]byte(msg + "\n"))
+func SendMessage(player *Player, message string) {
+	if player.Conn != nil {
+		player.Conn.Write([]byte(message + "\n"))
+	}
 }
