@@ -1,6 +1,6 @@
 # **🧩 Terminal Tic-Tac-Toe Game (Multiplayer over TCP)**
 
-A networked Tic-Tac-Toe game written in Go, playable via a terminal client like** `nc` **or** `telnet`**. Supports both Two-Player and AI modes, with a Leaderboard to track player scores. The game runs as a TCP server, allowing multiple clients to connect, play in real-time, and compete.
+A networked Tic-Tac-Toe game written in Go, playable via a terminal client like `nc` or `telnet`. Supports both Two-Player and AI modes, with a Leaderboard to track player scores. The game runs as a TCP server, allowing multiple clients to connect, play in real-time, and compete.
 
 ## **Features**
 
