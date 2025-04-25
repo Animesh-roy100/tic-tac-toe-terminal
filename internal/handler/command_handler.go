@@ -5,7 +5,10 @@ import (
 	"strconv"
 	"tic-tac-toe/internal/application"
 	"tic-tac-toe/internal/types"
+	"time"
 )
+
+var ErrExit = errors.New("exit requested")
 
 type CommandHandler func(player *types.Player, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error
 
@@ -13,7 +16,7 @@ var handlers = map[string]CommandHandler{
 	"join":        JoinGameHandler,
 	"move":        MakeMoveHandler,
 	"leaderboard": LeaderboardHandler,
-	// "exit":        ExitHandler,
+	"exit":        ExitHandler,
 }
 
 func HandleCommand(player *types.Player, command string, args []string, gameService *application.GameService, leaderboard *application.LeaderboardService, matchmaking *application.MatchmakingService, server types.Server) error {
@@ -103,14 +106,17 @@ func MakeMoveHandler(player *types.Player, args []string, gameService *applicati
 
 	// Notify next player if game continues
 	g, err := gameService.FindGameByID(player.GameID)
-	if err == nil && g.Winner == "" && !g.IsDraw {
+	if err == nil && (g.Winner != "" || g.IsDraw) {
+		server.EndGame(player.GameID, "Game has ended. You can start a new game.")
+	} else if err == nil && !g.IsDraw {
+		// Notify next player if game continues
+		currentTurn := g.CurrentTurn
+		if currentTurn == "" {
+			return errors.New("error: current turn not set")
+		}
 		if gameService.IsAIGame(player.GameID) {
 			types.SendMessage(player, "Your turn.")
 		} else {
-			currentTurn := g.CurrentTurn
-			if currentTurn == "" {
-				return errors.New("error: current turn not set")
-			}
 			server.BroadcastToGame(player.GameID, currentTurn+"'s turn.")
 		}
 	}
@@ -127,15 +133,15 @@ func LeaderboardHandler(player *types.Player, args []string, _ *application.Game
 	return nil
 }
 
-// func ExitHandler(player *types.Player, args []string, _ *application.GameService, _ *application.LeaderboardService, _ *application.MatchmakingService, server types.Server) error {
-// 	server.ExitPlayer(player)
+func ExitHandler(player *types.Player, args []string, _ *application.GameService, _ *application.LeaderboardService, _ *application.MatchmakingService, server types.Server) error {
+	server.ExitPlayer(player)
 
-// 	types.SendMessage(player, "Goodbye!")
+	types.SendMessage(player, "Goodbye!")
 
-// // Close the connection
-// if player.Conn != nil {
-// 	player.Conn.Close()
-// }
-
-// 	return io.EOF
-// }
+	// Close the connection
+	// if player.Conn != nil {
+	// 	player.Conn.Close()
+	// }
+	time.Sleep(100 * time.Millisecond)
+	return ErrExit
+}

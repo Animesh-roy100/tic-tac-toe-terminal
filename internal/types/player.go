@@ -17,5 +17,6 @@ type Server interface {
 	BroadcastToGame(gameID string, message string)
 	GetPlayer(username string) *Player
 	GetPlayers() map[string]*Player
-	// ExitPlayer(player *Player)
+	ExitPlayer(player *Player)
+	EndGame(gameID string, message string)
 }

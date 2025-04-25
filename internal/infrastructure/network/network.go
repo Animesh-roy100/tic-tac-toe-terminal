@@ -82,7 +82,7 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 			s.players[username] = player
 			s.mu.Unlock()
 			types.SendMessage(player, "Welcome, "+username)
-			types.SendMessage(player, "Commands: join <two-player|ai>, move <1-9>, leaderboard")
+			types.SendMessage(player, "Commands: join <two-player|ai>, move <1-9>, leaderboard, exit")
 			break
 		}
 	}
@@ -105,6 +105,9 @@ func (s *TCPServer) handleClient(conn net.Conn) {
 		command := parts[0]
 		args := parts[1:]
 		if err := handler.HandleCommand(player, command, args, s.gameService, s.leaderboard, s.matchmaking, s); err != nil {
+			if err.Error() == "exit requested" {
+				return // clean exit
+			}
 			types.SendMessage(player, "Error: "+err.Error())
 		}
 	}
@@ -136,42 +139,56 @@ func (s *TCPServer) GetPlayers() map[string]*types.Player {
 	return s.players
 }
 
-// func (s *TCPServer) ExitPlayer(player *types.Player) {
-// 	s.mu.Lock()
-// 	log.Printf("Exiting player: %s", player.Username)
-// 	delete(s.players, player.Username)
+func (s *TCPServer) ExitPlayer(player *types.Player) {
+	s.mu.Lock()
+	log.Printf("Exiting player: %s", player.Username)
+	delete(s.players, player.Username)
 
-// 	if player.GameID == "" {
-// 		// Player was waiting, remove from waiting queue
-// 		log.Printf("%s was waiting, removing from queue", player.Username)
-// 		s.matchmaking.RemoveFromWaiting(player.Username)
-// 	} else {
-// 		// Player was in a game
-// 		gameID := player.GameID
-// 		log.Printf("%s was in game %s", player.Username, gameID)
-// 		gamePlayers := s.gamePlayers[gameID]
-// 		for i, p := range gamePlayers {
-// 			if p.Username == player.Username {
-// 				s.gamePlayers[gameID] = append(gamePlayers[:i], gamePlayers[i+1:]...)
-// 				break
-// 			}
-// 		}
-// 		remainingPlayers := s.gamePlayers[gameID]
-// 		if len(remainingPlayers) > 0 {
-// 			log.Printf("Broadcasting to game %s: %s has left", gameID, player.Username)
-// 			s.BroadcastToGame(gameID, player.Username+" has left the game.")
-// 		}
+	var remainingPlayers []*types.Player
+	if player.GameID != "" {
+		// Player was in a game
+		gameID := player.GameID
+		log.Printf("%s was in game %s", player.Username, gameID)
+		gamePlayers := s.gamePlayers[gameID]
+		for i, p := range gamePlayers {
+			if p.Username == player.Username {
+				s.gamePlayers[gameID] = append(gamePlayers[:i], gamePlayers[i+1:]...)
+				break
+			}
+		}
+		remainingPlayers := s.gamePlayers[gameID]
+		log.Printf("Remaining players in game %s: %v", gameID, remainingPlayers[0])
 
-// 		if len(remainingPlayers) == 1 {
-// 			remainingPlayer := remainingPlayers[0]
-// 			log.Printf("Notifying %s and moving to waiting queue", remainingPlayer.Username)
-// 			types.SendMessage(remainingPlayer, "Your opponent has left. Waiting for a new opponent...")
-// 			s.matchmaking.AddToWaiting(remainingPlayer.Username)
-// 			remainingPlayer.GameID = ""
-// 			s.gameService.DeleteGame(gameID)
-// 		}
-// 		log.Printf("Deleting game %s from gamePlayers", gameID)
-// 		delete(s.gamePlayers, gameID)
-// 	}
-// 	s.mu.Unlock()
-// }
+		if len(remainingPlayers) == 1 {
+			remainingPlayer := remainingPlayers[0]
+			log.Printf("Notifying %s and moving to waiting queue", remainingPlayer.Username)
+			types.SendMessage(remainingPlayer, "Your opponent has left. Waiting for a new opponent...")
+			s.matchmaking.AddToWaiting(remainingPlayer.Username)
+			remainingPlayer.GameID = ""
+			s.gameService.DeleteGame(gameID)
+		}
+		log.Printf("Deleting game %s from gamePlayers", gameID)
+		delete(s.gamePlayers, gameID)
+	}
+	s.mu.Unlock()
+
+	if remainingPlayers != nil && len(remainingPlayers) > 0 {
+		log.Printf("Broadcasting to game %s: %s has left", player.GameID, player.Username)
+		for _, p := range remainingPlayers {
+			types.SendMessage(p, player.Username+" has left the game.")
+		}
+	}
+}
+
+func (s *TCPServer) EndGame(gameID string, message string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if players, ok := s.gamePlayers[gameID]; ok {
+		for _, p := range players {
+			types.SendMessage(p, message)
+			p.GameID = ""
+		}
+		delete(s.gamePlayers, gameID)
+	}
+	s.gameService.DeleteGame(gameID)
+}
