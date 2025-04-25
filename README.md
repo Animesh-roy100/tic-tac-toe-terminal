@@ -2,23 +2,23 @@
 
 A networked Tic-Tac-Toe game written in Go, playable via a terminal client like** `nc` **or** `telnet`**. Supports both Two-Player and AI modes, with a Leaderboard to track player scores. The game runs as a TCP server, allowing multiple clients to connect, play in real-time, and compete.
 
-## **✨ Features**
+## **Features**
 
-- **🎮 Two-Player Mode:** Compete against another player over the network.
-- **🤖 AI Mode:** Play against a strategic computer opponent.
-- **🏆 Leaderboard:** Tracks wins (2 points for multiplayer, 1 point for AI, bonus for streaks).
-- **⚡ Real-Time Updates:** Live board and turn updates.
-- **🔐 Unique Usernames:** Ensures no username conflicts.
-- **🚪 Graceful Exit:** Players can leave mid-game; opponents are notified.
-- **🧵 Thread Safety:** Concurrency-safe using mutex locks.
+- **Two-Player Mode:** Compete against another player over the network.
+- **AI Mode:** Play against a strategic computer opponent.
+- **Leaderboard:** Tracks wins (2 points for multiplayer, 1 point for AI, bonus for streaks).
+- **Real-Time Updates:** Live board and turn updates.
+- **Unique Usernames:** Ensures no username conflicts.
+- **Graceful Exit:** Players can leave mid-game; opponents are notified.
+- **Thread Safety:** Concurrency-safe using mutex locks.
 
-## **📋 Prerequisites**
+## **Prerequisites**
 
 - **Go:** v1.16 or higher (Download Go)
 - **Terminal Client:** `netcat` (`nc`) or `telnet`
 - **OS:** macOS, Linux, or Windows (terminal compatible)
 
-## **🛠️ Getting Started**
+## **Getting Started**
 
 ### **1. Clone the Repository**
 
@@ -89,7 +89,7 @@ Alternatively, use `telnet`:
 telnet localhost 5000
 ```
 
-## **🎮 Gameplay Instructions**
+## **Gameplay Instructions**
 
 ### **Start a Client**
 
