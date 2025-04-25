@@ -157,7 +157,7 @@ func (s *TCPServer) ExitPlayer(player *types.Player) {
 			}
 		}
 		remainingPlayers := s.gamePlayers[gameID]
-		log.Printf("Remaining players in game %s: %v", gameID, remainingPlayers[0])
+		log.Printf("Remaining players in game %s: %d", gameID, len(remainingPlayers))
 
 		if len(remainingPlayers) == 1 {
 			remainingPlayer := remainingPlayers[0]
@@ -167,8 +167,10 @@ func (s *TCPServer) ExitPlayer(player *types.Player) {
 			remainingPlayer.GameID = ""
 			s.gameService.DeleteGame(gameID)
 		}
+
 		log.Printf("Deleting game %s from gamePlayers", gameID)
 		delete(s.gamePlayers, gameID)
+		s.gameService.DeleteGame(gameID)
 	}
 	s.mu.Unlock()
 
